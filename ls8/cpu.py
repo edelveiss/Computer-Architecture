@@ -64,13 +64,9 @@ class CPU:
         # 8 general-purpose registers
         self.reg = [0] * 8
 
-    def load(self):
-        """Load a program into memory."""
-
-        address = 0
-
+    def load_hardcoded(self):
         # For now, we've just hardcoded a program:
-
+        address = 0 
         program = [
             # From print8.ls8
             0b10000010, # LDI R0,8
@@ -83,15 +79,57 @@ class CPU:
 
         for instruction in program:
             self.ram[address] = instruction
+            print(self.ram)
             address += 1
+
+
+    def load(self, filename):
+        """Load a program into memory."""
+
+        address = 0
+        try:
+            with open(filename) as f:
+                for line in f:
+                    # Split the current line on the symbol #
+                    split_line = line.split("#")
+                    # Remove white spaces and \n character
+                    code_value = split_line[0].strip()
+                    # Make sure that the value bafore the # symbol is not empty
+                    if code_value == "":
+                        continue
+                    num = int(code_value,2)
+                    self.ram_write(num, address)
+                    address += 1
+
+        except FileNotFoundError:
+            print(f"{sys.argv[1]} file not found")
+            sys.exit(2)
+
+    
+
+        
 
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
-        if op == "ADD":
+        if op == ADD:
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == MUL: 
+            self.reg[reg_a] *= self.reg[reg_b]
+        elif op == SUB: 
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == DIV: 
+            if self.reg[reg_b] != 0:
+                self.reg[reg_a] /= self.reg[reg_b]
+            else:
+                print("division by 0 is undefined")
+        elif op == MOD: 
+            if self.reg[reg_b] != 0:
+                self.reg[reg_a] %= self.reg[reg_b]
+            else:
+                print("division by 0 is undefined")
+
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -139,25 +177,28 @@ class CPU:
         while running:
             # self.trace()
             # Instruction Register
-            value = self.ram_read(self.pc)
-            IR = self.convert_to_bin_str(value)
+            IR = self.ram_read(self.pc)
             
             # size of operation code
-            op_size = int(IR[2:4], 2) +1
-            alu_operation = IR[4:5]
+            shifted_num = IR >> 6
+            op_size = shifted_num +1
+            alu_operation = IR >> 5 & 0b001 
+            
             if alu_operation == 1:
-                pass
+                operand_a = self.ram_read(self.pc + 1)
+                operand_b = self.ram_read(self.pc + 2)
+                self.alu(IR, operand_a, operand_b)
 
-            elif IR == self.convert_to_bin_str(LDI):
+            elif IR == LDI:
                 operand_a = self.ram_read(self.pc + 1)
                 operand_b = self.ram_read(self.pc + 2)
                 self.reg[operand_a] = operand_b
 
-            elif IR == self.convert_to_bin_str(PRN):
+            elif IR == PRN:
                 operand_a = self.ram_read(self.pc + 1)
                 print(self.reg[operand_a])
 
-            elif IR == self.convert_to_bin_str(HLT):
+            elif IR == HLT:
                 running = False
                 # sys.exit(0) 
 
@@ -165,6 +206,41 @@ class CPU:
                 print(f"Unknown operation: {IR}")
                 sys.exit(1)
             self.pc += op_size
+
+    # def run_without_bitwise(self):
+    #     """Run the CPU."""
+    #     # keep track of running
+    #     running = True
+       
+    #     while running:
+    #         # self.trace()
+    #         # Instruction Register
+    #         value = self.ram_read(self.pc)
+    #         IR = self.convert_to_bin_str(value)
+
+    #         # size of operation code  
+    #         op_size = int(IR[2:4], 2) +1
+    #         alu_operation = IR[4:5]
+    #         if alu_operation == 1:
+    #             pass
+
+    #         elif IR == self.convert_to_bin_str(LDI):
+    #             operand_a = self.ram_read(self.pc + 1)
+    #             operand_b = self.ram_read(self.pc + 2)
+    #             self.reg[operand_a] = operand_b
+
+    #         elif IR == self.convert_to_bin_str(PRN):
+    #             operand_a = self.ram_read(self.pc + 1)
+    #             print(self.reg[operand_a])
+
+    #         elif IR == self.convert_to_bin_str(HLT):
+    #             running = False
+    #             # sys.exit(0) 
+
+    #         else:
+    #             print(f"Unknown operation: {IR}")
+    #             sys.exit(1)
+    #         self.pc += op_size
 
             
 
