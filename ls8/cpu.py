@@ -64,6 +64,50 @@ class CPU:
         # 8 general-purpose registers
         self.reg = [0] * 8
 
+        # Set up the branch table
+        self.branchtable = {}
+        self.branchtable[ADD] = self.add
+        self.branchtable[SUB] = self.sub
+        self.branchtable[MUL] = self.mul
+        self.branchtable[DIV] = self.div
+        self.branchtable[MOD] = self.mod
+        self.branchtable[LDI] = self.ldi
+        self.branchtable[HLT] = self.hlt
+        self.branchtable[PRN] = self.prn
+
+    # branchtabel functions
+    def prn(self,operand_a, operand_b):
+        print(self.reg[operand_a])
+
+    def ldi(self,operand_a, operand_b):
+        self.reg[operand_a] = operand_b
+
+    def hlt(self,operand_a, operand_b):
+        print(self.reg[operand_a])
+
+    def mul(self,operand_a, operand_b):
+        self.reg[operand_a] *= self.reg[operand_b]
+
+    def add(self,operand_a, operand_b):
+        self.reg[operand_a] += self.reg[operand_b]
+
+    def sub(self,operand_a, operand_b):
+        self.reg[operand_a] -= self.reg[operand_b]
+
+    def div(self,operand_a, operand_b):
+        if self.reg[operand_b] != 0:
+            self.reg[operand_a] //= self.reg[operand_b]
+        else:
+            print("division by 0 is undefined")
+
+    def mod(self,operand_a, operand_b):
+        if self.reg[operand_b] != 0:
+            self.reg[operand_a] %= self.reg[operand_b]
+        else:
+            print("division by 0 is undefined")
+        
+     
+
     def load_hardcoded(self):
         # For now, we've just hardcoded a program:
         address = 0 
@@ -105,30 +149,12 @@ class CPU:
             print(f"{sys.argv[1]} file not found")
             sys.exit(2)
 
-    
-
-        
-
+  
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-        if op == ADD:
-            self.reg[reg_a] += self.reg[reg_b]
-        elif op == MUL: 
-            self.reg[reg_a] *= self.reg[reg_b]
-        elif op == SUB: 
-            self.reg[reg_a] -= self.reg[reg_b]
-        elif op == DIV: 
-            if self.reg[reg_b] != 0:
-                self.reg[reg_a] /= self.reg[reg_b]
-            else:
-                print("division by 0 is undefined")
-        elif op == MOD: 
-            if self.reg[reg_b] != 0:
-                self.reg[reg_a] %= self.reg[reg_b]
-            else:
-                print("division by 0 is undefined")
-
+        if op in self.branchtable:
+            self.branchtable[op](reg_a, reg_b)
 
         else:
             raise Exception("Unsupported ALU operation")
@@ -183,29 +209,67 @@ class CPU:
             shifted_num = IR >> 6
             op_size = shifted_num +1
             alu_operation = IR >> 5 & 0b001 
+
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
             
             if alu_operation == 1:
-                operand_a = self.ram_read(self.pc + 1)
-                operand_b = self.ram_read(self.pc + 2)
                 self.alu(IR, operand_a, operand_b)
-
-            elif IR == LDI:
-                operand_a = self.ram_read(self.pc + 1)
-                operand_b = self.ram_read(self.pc + 2)
-                self.reg[operand_a] = operand_b
-
-            elif IR == PRN:
-                operand_a = self.ram_read(self.pc + 1)
-                print(self.reg[operand_a])
 
             elif IR == HLT:
                 running = False
                 # sys.exit(0) 
 
+            elif IR in self.branchtable:
+                self.branchtable[IR](operand_a,operand_b)
+
             else:
                 print(f"Unknown operation: {IR}")
                 sys.exit(1)
             self.pc += op_size
+
+#-------------------------------------------------------------------
+    # def run_without_branch_table(self):
+    #     """Run the CPU."""
+    #     # keep track of running
+    #     running = True
+       
+    #     while running:
+    #         # self.trace()
+    #         # Instruction Register
+    #         IR = self.ram_read(self.pc)
+            
+    #         # size of operation code
+    #         shifted_num = IR >> 6
+    #         op_size = shifted_num +1
+    #         alu_operation = IR >> 5 & 0b001 
+
+    #         operand_a = self.ram_read(self.pc + 1)
+    #         operand_b = self.ram_read(self.pc + 2)
+            
+    #         if alu_operation == 1:
+    #             # operand_a = self.ram_read(self.pc + 1)
+    #             # operand_b = self.ram_read(self.pc + 2)
+    #             self.alu(IR, operand_a, operand_b)
+
+    #         elif IR == LDI:
+    #             # operand_a = self.ram_read(self.pc + 1)
+    #             # operand_b = self.ram_read(self.pc + 2)
+    #             self.reg[operand_a] = operand_b
+
+    #         elif IR == PRN:
+    #             # operand_a = self.ram_read(self.pc + 1)
+    #             print(self.reg[operand_a])
+
+    #         elif IR == HLT:
+    #             running = False
+    #             # sys.exit(0) 
+
+    #         else:
+    #             print(f"Unknown operation: {IR}")
+    #             sys.exit(1)
+    #         self.pc += op_size
+
 
     # def run_without_bitwise(self):
     #     """Run the CPU."""
@@ -241,6 +305,29 @@ class CPU:
     #             print(f"Unknown operation: {IR}")
     #             sys.exit(1)
     #         self.pc += op_size
+
+    # def alu_without_branch_table(self, op, reg_a, reg_b):
+    #     """ALU operations."""
+    #     if op == ADD:
+    #         self.reg[reg_a] += self.reg[reg_b]
+    #     elif op == MUL: 
+    #         self.reg[reg_a] *= self.reg[reg_b]
+    #     elif op == SUB: 
+    #         self.reg[reg_a] -= self.reg[reg_b]
+    #     elif op == DIV: 
+    #         if self.reg[reg_b] != 0:
+    #             self.reg[reg_a] /= self.reg[reg_b]
+    #         else:
+    #             print("division by 0 is undefined")
+    #     elif op == MOD: 
+    #         if self.reg[reg_b] != 0:
+    #             self.reg[reg_a] %= self.reg[reg_b]
+    #         else:
+    #             print("division by 0 is undefined")
+
+
+    #     else:
+    #         raise Exception("Unsupported ALU operation")
 
             
 
