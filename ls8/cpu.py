@@ -63,17 +63,29 @@ class CPU:
         self.pc = 0
         # 8 general-purpose registers
         self.reg = [0] * 8
+        self.stack_pointer = 7
+        # stack pointer is a special register
+        # 0xF4 is 244 in decimal
+        self.address = 0
+        self.reg[self.stack_pointer] = 0xF4
 
         # Set up the branch table
-        self.branchtable = {}
-        self.branchtable[ADD] = self.add
-        self.branchtable[SUB] = self.sub
-        self.branchtable[MUL] = self.mul
-        self.branchtable[DIV] = self.div
-        self.branchtable[MOD] = self.mod
-        self.branchtable[LDI] = self.ldi
-        self.branchtable[HLT] = self.hlt
-        self.branchtable[PRN] = self.prn
+        self.branchtable = {
+            ADD: self.add,
+            SUB: self.sub,
+            MUL: self.mul,
+            DIV: self.div,
+            MOD: self.mod,
+            LDI: self.ldi,
+            HLT: self.hlt,
+            PRN: self.prn,
+            PUSH: self.push,
+            POP: self.pop,
+            CALL: self.call,
+            RET: self.ret,
+
+        }
+     
 
     # branchtabel functions
     def prn(self,operand_a, operand_b):
@@ -105,9 +117,57 @@ class CPU:
             self.reg[operand_a] %= self.reg[operand_b]
         else:
             print("division by 0 is undefined")
-        
-     
 
+    # python3 ls8.py examples/stack.ls8
+    # PUSH function
+    def push(self,operand_a, operand_b):
+        if self.reg[self.stack_pointer] < self.address:
+            print("Stack overflow!")
+            sys.exit(2)
+        else:
+            # decrement stack pointer
+            self.reg[self.stack_pointer] -= 1
+            # get a value of operand_a register
+            value_in_reg = self.reg[operand_a]
+            self.ram_write(value_in_reg,self.reg[self.stack_pointer] )
+            # self.ram[self.reg[self.stack_pointer]] = value_in_reg
+
+    # POP function
+    def pop(self,operand_a, operand_b):
+        if self.reg[self.stack_pointer] == 0xF4:
+            print("Stack underflow!")
+            sys.exit(2)
+        else:
+            # pop top stack value
+            top_stack_value = self.ram_read(self.reg[self.stack_pointer])
+            # top_stack_value = self.ram[self.reg[self.stack_pointer]]
+            # increment stack pointer
+            self.reg[self.stack_pointer] += 1
+            # write top stack value into operand_a register
+            self.reg[operand_a] = top_stack_value
+
+    # CALL op
+    def call(self,operand_a, operand_b):
+        given_register = self.ram_read(operand_a)
+        # decrement the stack pointer
+        self.reg[self.stack_pointer] -= 1
+        return_address = self.pc +2
+        # store the return address onto the stack
+        self.ram_write(return_address,self.reg[self.stack_pointer] )
+        # set pc to the value in given register
+        self.pc = self.reg[given_register]
+
+
+    # RET op
+    def ret(self,operand_a, operand_b):
+        # set pc to the value at the top of the stack
+        self.pc = self.ram_read(self.reg[self.stack_pointer])
+        # increment the stack pointer
+        self.reg[self.stack_pointer] += 1
+
+
+      
+    # python3 ls8.py examples/print8.ls8
     def load_hardcoded(self):
         # For now, we've just hardcoded a program:
         address = 0 
@@ -126,11 +186,11 @@ class CPU:
             print(self.ram)
             address += 1
 
-
+    # python3 ls8.py examples/mult.ls8
     def load(self, filename):
         """Load a program into memory."""
 
-        address = 0
+
         try:
             with open(filename) as f:
                 for line in f:
@@ -142,12 +202,21 @@ class CPU:
                     if code_value == "":
                         continue
                     num = int(code_value,2)
-                    self.ram_write(num, address)
-                    address += 1
+                    self.ram_write(num, self.address)
+                    self.address += 1
 
         except FileNotFoundError:
             print(f"{sys.argv[1]} file not found")
             sys.exit(2)
+
+
+    def set_pc_operation(self, IR,operand_a, operand_b ):
+        '''set_pc_operation'''
+        if IR in self.branchtable:
+            self.branchtable[IR](operand_a, operand_b)
+
+        else:
+            raise Exception("Unsupported set_pc_operation")
 
   
 
@@ -209,24 +278,32 @@ class CPU:
             shifted_num = IR >> 6
             op_size = shifted_num +1
             alu_operation = IR >> 5 & 0b001 
+            set_to_pc = IR >> 4 & 0b0001
+            
 
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
-            
-            if alu_operation == 1:
-                self.alu(IR, operand_a, operand_b)
 
-            elif IR == HLT:
-                running = False
-                # sys.exit(0) 
+            if set_to_pc == 0:
+                if alu_operation == 1:
+                    self.alu(IR, operand_a, operand_b)
 
-            elif IR in self.branchtable:
-                self.branchtable[IR](operand_a,operand_b)
+                elif IR == HLT:
+                    running = False
+                    # sys.exit(0) 
+
+                elif IR in self.branchtable:
+                    self.branchtable[IR](operand_a,operand_b)
+
+                else:
+                    print(f"Unknown operation: {IR}")
+                    sys.exit(1)
+
+                
+                self.pc += op_size
 
             else:
-                print(f"Unknown operation: {IR}")
-                sys.exit(1)
-            self.pc += op_size
+                self.set_pc_operation(IR,operand_a, operand_b )
 
 #-------------------------------------------------------------------
     # def run_without_branch_table(self):
