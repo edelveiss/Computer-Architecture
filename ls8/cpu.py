@@ -68,7 +68,11 @@ class CPU:
         # 0xF4 is 244 in decimal
         self.address = 0
         self.reg[self.stack_pointer] = 0xF4
+        self.hulted = True
 
+#-------------------------------------------------
+    # branchtabel 
+#-------------------------------------------------
         # Set up the branch table
         self.branchtable = {
             ADD: self.add,
@@ -86,8 +90,9 @@ class CPU:
 
         }
      
-
+#-------------------------------------------------
     # branchtabel functions
+#-------------------------------------------------    
     def prn(self,operand_a, operand_b):
         print(self.reg[operand_a])
 
@@ -95,7 +100,7 @@ class CPU:
         self.reg[operand_a] = operand_b
 
     def hlt(self,operand_a, operand_b):
-        print(self.reg[operand_a])
+        self.hulted = False
 
     def mul(self,operand_a, operand_b):
         self.reg[operand_a] *= self.reg[operand_b]
@@ -186,11 +191,12 @@ class CPU:
             print(self.ram)
             address += 1
 
+#-------------------------------------------------
+    # load function
+#-------------------------------------------------
     # python3 ls8.py examples/mult.ls8
     def load(self, filename):
         """Load a program into memory."""
-
-
         try:
             with open(filename) as f:
                 for line in f:
@@ -209,7 +215,9 @@ class CPU:
             print(f"{sys.argv[1]} file not found")
             sys.exit(2)
 
-
+#-------------------------------------------------
+    # set_pc_operation function
+#-------------------------------------------------
     def set_pc_operation(self, IR,operand_a, operand_b ):
         '''set_pc_operation'''
         if IR in self.branchtable:
@@ -219,7 +227,9 @@ class CPU:
             raise Exception("Unsupported set_pc_operation")
 
   
-
+#-------------------------------------------------
+    # alu operation function
+#-------------------------------------------------
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
         if op in self.branchtable:
@@ -263,13 +273,13 @@ class CPU:
         return f"{number:#010b}"
 
     
-
+#-------------------------------------------------
+    # run function
+#-------------------------------------------------
     def run(self):
         """Run the CPU."""
         # keep track of running
-        running = True
-       
-        while running:
+        while self.hulted:
             # self.trace()
             # Instruction Register
             IR = self.ram_read(self.pc)
@@ -287,10 +297,6 @@ class CPU:
             if set_to_pc == 0:
                 if alu_operation == 1:
                     self.alu(IR, operand_a, operand_b)
-
-                elif IR == HLT:
-                    running = False
-                    # sys.exit(0) 
 
                 elif IR in self.branchtable:
                     self.branchtable[IR](operand_a,operand_b)
