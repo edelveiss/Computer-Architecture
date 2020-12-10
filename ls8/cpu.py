@@ -1,7 +1,11 @@
 """CPU functionality."""
-
+# python3 ls8.py examples/print8.ls8
+# python3 ls8.py examples/mult.ls8
+# python3 ls8.py examples/stack.ls8
 import sys
-
+#-------------------------------------------------
+    # operation codes
+#-------------------------------------------------
 # ALU ops
 ADD = 0b10100000 
 SUB = 0b10100001 
@@ -65,9 +69,8 @@ class CPU:
         self.reg = [0] * 8
         self.stack_pointer = 7
         # stack pointer is a special register
-        # 0xF4 is 244 in decimal
-        self.address = 0
         self.reg[self.stack_pointer] = 0xF4
+        self.address = 0
         self.hulted = True
 
 #-------------------------------------------------
@@ -87,8 +90,25 @@ class CPU:
             POP: self.pop,
             CALL: self.call,
             RET: self.ret,
+            ST: self.st,
 
         }
+
+#-------------------------------------------------
+    # ram_read functions
+#-------------------------------------------------   
+    def ram_read(self, address_to_read):
+        return self.ram[address_to_read]
+
+#-------------------------------------------------
+    # ram_write functions
+#-------------------------------------------------
+    def ram_write(self, mdr_data, mar_address):
+        '''
+        mar is an address from Memory Address Register
+        mdr is a data from Memory Data Register
+        '''
+        self.ram[mar_address] = mdr_data
      
 #-------------------------------------------------
     # branchtabel functions
@@ -116,17 +136,18 @@ class CPU:
             self.reg[operand_a] //= self.reg[operand_b]
         else:
             print("division by 0 is undefined")
+            self.hulted = False
 
     def mod(self,operand_a, operand_b):
         if self.reg[operand_b] != 0:
             self.reg[operand_a] %= self.reg[operand_b]
         else:
             print("division by 0 is undefined")
+            self.hulted = False
 
-    # python3 ls8.py examples/stack.ls8
     # PUSH function
     def push(self,operand_a, operand_b):
-        if self.reg[self.stack_pointer] < self.address:
+        if self.reg[self.stack_pointer]-1 < self.address:
             print("Stack overflow!")
             sys.exit(2)
         else:
@@ -170,9 +191,12 @@ class CPU:
         # increment the stack pointer
         self.reg[self.stack_pointer] += 1
 
+    def st(self,operand_a, operand_b):
+        # Store value in operand_b in the address stored in operand_a.
+        self.ram_write(self.reg[operand_b], self.reg[operand_a])
 
       
-    # python3 ls8.py examples/print8.ls8
+    
     def load_hardcoded(self):
         # For now, we've just hardcoded a program:
         address = 0 
@@ -194,7 +218,6 @@ class CPU:
 #-------------------------------------------------
     # load function
 #-------------------------------------------------
-    # python3 ls8.py examples/mult.ls8
     def load(self, filename):
         """Load a program into memory."""
         try:
@@ -238,15 +261,7 @@ class CPU:
         else:
             raise Exception("Unsupported ALU operation")
 
-    def ram_read(self, address_to_read):
-        return self.ram[address_to_read]
-
-    def ram_write(self, mdr_data, mar_address):
-        '''
-        mar is an address from Memory Address Register
-        mdr is a data from Memory Data Register
-        '''
-        self.ram[mar_address] = mdr_data
+    
 
     def trace(self):
         """
@@ -283,11 +298,14 @@ class CPU:
             # self.trace()
             # Instruction Register
             IR = self.ram_read(self.pc)
-            
+            # AABCDDDD
+            # AA shows an operation size
             # size of operation code
             shifted_num = IR >> 6
             op_size = shifted_num +1
+            # B shows ALU command
             alu_operation = IR >> 5 & 0b001 
+            # C shows the instruction sets PC counter
             set_to_pc = IR >> 4 & 0b0001
             
 
@@ -311,110 +329,6 @@ class CPU:
             else:
                 self.set_pc_operation(IR,operand_a, operand_b )
 
-#-------------------------------------------------------------------
-    # def run_without_branch_table(self):
-    #     """Run the CPU."""
-    #     # keep track of running
-    #     running = True
-       
-    #     while running:
-    #         # self.trace()
-    #         # Instruction Register
-    #         IR = self.ram_read(self.pc)
-            
-    #         # size of operation code
-    #         shifted_num = IR >> 6
-    #         op_size = shifted_num +1
-    #         alu_operation = IR >> 5 & 0b001 
 
-    #         operand_a = self.ram_read(self.pc + 1)
-    #         operand_b = self.ram_read(self.pc + 2)
-            
-    #         if alu_operation == 1:
-    #             # operand_a = self.ram_read(self.pc + 1)
-    #             # operand_b = self.ram_read(self.pc + 2)
-    #             self.alu(IR, operand_a, operand_b)
-
-    #         elif IR == LDI:
-    #             # operand_a = self.ram_read(self.pc + 1)
-    #             # operand_b = self.ram_read(self.pc + 2)
-    #             self.reg[operand_a] = operand_b
-
-    #         elif IR == PRN:
-    #             # operand_a = self.ram_read(self.pc + 1)
-    #             print(self.reg[operand_a])
-
-    #         elif IR == HLT:
-    #             running = False
-    #             # sys.exit(0) 
-
-    #         else:
-    #             print(f"Unknown operation: {IR}")
-    #             sys.exit(1)
-    #         self.pc += op_size
-
-
-    # def run_without_bitwise(self):
-    #     """Run the CPU."""
-    #     # keep track of running
-    #     running = True
-       
-    #     while running:
-    #         # self.trace()
-    #         # Instruction Register
-    #         value = self.ram_read(self.pc)
-    #         IR = self.convert_to_bin_str(value)
-
-    #         # size of operation code  
-    #         op_size = int(IR[2:4], 2) +1
-    #         alu_operation = IR[4:5]
-    #         if alu_operation == 1:
-    #             pass
-
-    #         elif IR == self.convert_to_bin_str(LDI):
-    #             operand_a = self.ram_read(self.pc + 1)
-    #             operand_b = self.ram_read(self.pc + 2)
-    #             self.reg[operand_a] = operand_b
-
-    #         elif IR == self.convert_to_bin_str(PRN):
-    #             operand_a = self.ram_read(self.pc + 1)
-    #             print(self.reg[operand_a])
-
-    #         elif IR == self.convert_to_bin_str(HLT):
-    #             running = False
-    #             # sys.exit(0) 
-
-    #         else:
-    #             print(f"Unknown operation: {IR}")
-    #             sys.exit(1)
-    #         self.pc += op_size
-
-    # def alu_without_branch_table(self, op, reg_a, reg_b):
-    #     """ALU operations."""
-    #     if op == ADD:
-    #         self.reg[reg_a] += self.reg[reg_b]
-    #     elif op == MUL: 
-    #         self.reg[reg_a] *= self.reg[reg_b]
-    #     elif op == SUB: 
-    #         self.reg[reg_a] -= self.reg[reg_b]
-    #     elif op == DIV: 
-    #         if self.reg[reg_b] != 0:
-    #             self.reg[reg_a] /= self.reg[reg_b]
-    #         else:
-    #             print("division by 0 is undefined")
-    #     elif op == MOD: 
-    #         if self.reg[reg_b] != 0:
-    #             self.reg[reg_a] %= self.reg[reg_b]
-    #         else:
-    #             print("division by 0 is undefined")
-
-
-    #     else:
-    #         raise Exception("Unsupported ALU operation")
-
-            
-
-        
-        
 
 
